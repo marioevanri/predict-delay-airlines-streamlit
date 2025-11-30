@@ -271,7 +271,6 @@ def run_ml_app():
             rute_str = f"{airport_from}-{airport_to}"
             rute_classes = raw_unique.get('Rute', []) if raw_unique else []
             used_rute = rute_str
-            rute_warning = False
             if rute_str not in rute_classes:
                 # fallback
                 if df_train is not None and 'AirportFrom' in df_train.columns:
@@ -284,10 +283,7 @@ def run_ml_app():
                     # fallback to first known route (from encoders) if available
                     r_classes = raw_unique.get('Rute', [])
                     used_rute = r_classes[0] if r_classes else rute_str
-                rute_warning = True
-
-            if rute_warning:
-                st.warning(f"Rute {rute_str} tidak ditemukan di data training — menggunakan rute fallback: {used_rute}")
+                # silently use fallback route when unseen
 
             input_row = {
                 'Airline': airline,
@@ -331,8 +327,7 @@ def run_ml_app():
                 else:
                     st.success('Prediction: ON-TIME')
 
-                with st.expander('Input fitur (setelah preprocessing)'):
-                    st.write(X_input.transpose())
+                # do not display preprocessed input in UI
 
             except Exception as e:
                 st.error(f"Terjadi kesalahan saat memprediksi: {e}")
