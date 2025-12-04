@@ -98,17 +98,18 @@ def _preprocess_input(input_data: dict, encoders: dict, feature_columns: list):
     """
     row = {}
     row['Airline'] = input_data['Airline']
-    row['AirportFrom'] = input_data['AirportFrom']
-    row['AirportTo'] = input_data['AirportTo']
     row['Length'] = input_data['Length_min'] / 60.0
     row['Time'] = input_data['Time_hour']
     row['DayOfWeek'] = input_data['DayOfWeek']
 
     df_row = pd.DataFrame([row])
-    if 'Rute_override' in input_data:
+    # Prefer explicit 'Rute' or 'Rute_override' supplied by caller
+    if 'Rute' in input_data and input_data['Rute'] is not None:
+        df_row['Rute'] = input_data['Rute']
+    elif 'Rute_override' in input_data:
         df_row['Rute'] = input_data['Rute_override']
     else:
-        df_row['Rute'] = df_row['AirportFrom'].astype(str) + '-' + df_row['AirportTo'].astype(str)
+        df_row['Rute'] = None
 
     def get_period(t):
         if (t >= 5) & (t < 12):
@@ -176,12 +177,6 @@ def _get_model_feature_names(model):
 
 
 def _align_input_to_model(X_df: pd.DataFrame, model_features: list, encoders: dict):
-    """Ensure X_df has exactly the columns in model_features in the same order.
-    - Add missing features with safe defaults: -1 for encoded categorical, 0 for numeric.
-    - Drop any extra columns not in model_features.
-    - Re-order columns to match model_features.
-    Returns a new DataFrame aligned to model_features.
-    """
     if model_features is None:
         return X_df
 
@@ -246,53 +241,36 @@ def run_ml_app():
     st.markdown("---")
     st.markdown("**Masukkan informasi penerbangan untuk prediksi risiko delay**")
 
-    # UI options
+    # UI options: Airline and Rute only (AirportFrom/AirportTo removed)
     airline_opt = raw_unique.get('Airline', []) if raw_unique else []
-    airport_from_opt = raw_unique.get('AirportFrom', []) if raw_unique else []
-    airport_to_opt = raw_unique.get('AirportTo', []) if raw_unique else []
+    rute_opt = raw_unique.get('Rute', []) if raw_unique else []
 
     col1, col2 = st.columns(2)
     with col1:
         airline = st.selectbox('Airline', options=airline_opt)
-        airport_from = st.selectbox('Airport From', options=airport_from_opt)
-        airport_to = st.selectbox('Airport To', options=airport_to_opt)
+        rute = st.selectbox('Rute', options=rute_opt)
+        # Day of Week placed below Rute as requested
+        dow_map = {1: 'Mon', 2: 'Tue', 3: 'Wed', 4: 'Thu', 5: 'Fri', 6: 'Sat', 7: 'Sun'}
+        dow = st.selectbox('Day of Week', options=list(dow_map.keys()), format_func=lambda x: f"{x} - {dow_map[x]}")
 
     with col2:
         length_min = st.slider('Flight Duration (minutes)', min_value=30, max_value=600, value=120)
         time_hour = st.slider('Departure Time (hour 0-23)', min_value=0.0, max_value=23.0, value=8.0, step=0.5)
-        dow_map = {1: 'Mon', 2: 'Tue', 3: 'Wed', 4: 'Thu', 5: 'Fri', 6: 'Sat', 7: 'Sun'}
-        dow = st.selectbox('Day of Week', options=list(dow_map.keys()), format_func=lambda x: f"{x} - {dow_map[x]}")
 
     st.markdown("---")
     if st.button('Predict Delay'):
         if model is None:
             st.error('Tidak ada model — letakkan `Tuned_Best_XGBoost.pkl` di folder proyek.')
         else:
-            rute_str = f"{airport_from}-{airport_to}"
-            rute_classes = raw_unique.get('Rute', []) if raw_unique else []
-            used_rute = rute_str
-            if rute_str not in rute_classes:
-                # fallback
-                if df_train is not None and 'AirportFrom' in df_train.columns:
-                    candidates = df_train[df_train['AirportFrom'].astype(str) == str(airport_from)]['Rute']
-                    if not candidates.empty:
-                        used_rute = candidates.mode().iloc[0]
-                    else:
-                        used_rute = df_train['Rute'].mode().iloc[0]
-                else:
-                    # fallback to first known route (from encoders) if available
-                    r_classes = raw_unique.get('Rute', [])
-                    used_rute = r_classes[0] if r_classes else rute_str
-                # silently use fallback route when unseen
+            # Use Rute provided by user (no AirportFrom/AirportTo)
+            used_rute = rute
 
             input_row = {
                 'Airline': airline,
-                'AirportFrom': airport_from,
-                'AirportTo': airport_to,
+                'Rute': used_rute,
                 'Length_min': length_min,
                 'Time_hour': time_hour,
                 'DayOfWeek': dow,
-                'Rute_override': used_rute
             }
 
             X_input = _preprocess_input(input_row, encoders, feature_columns)
