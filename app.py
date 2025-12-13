@@ -21,7 +21,7 @@ CATEGORICAL_FEATURES = preprocessor.transformers_[1][2]
 CATEGORIES = dict(zip(CATEGORICAL_FEATURES, cat_encoder.categories_))
 
 AIRLINES = sorted(CATEGORIES["Airline"])
-ROUTES = sorted(CATEGORIES["Route"])
+ROUTES = sorted(CATEGORIES["Rute"])
 DEPARTURE_PERIODS = sorted(CATEGORIES["Departure_period"])
 
 DAY_OF_WEEK = {
