@@ -3,70 +3,93 @@ import pandas as pd
 import joblib
 
 # =========================
-# LOAD MODEL & METADATA
+# LOAD PIPELINE
 # =========================
 @st.cache_resource
-def load_assets():
-    pipeline = joblib.load("airlines_final_pipeline.joblib")
-    metadata = joblib.load("model_metadata.joblib")
-    return pipeline, metadata
+def load_pipeline():
+    return joblib.load("airlines_final_pipeline.joblib")
 
-pipeline, metadata = load_assets()
-THRESHOLD = metadata["threshold"]
+pipeline = load_pipeline()
 
 # =========================
-# UI
+# FEATURE BUILDER
 # =========================
-st.set_page_config(page_title="Airline Delay Prediction", layout="centered")
-st.title("✈️ Airline Delay Prediction")
-st.write("Predict whether a flight will be delayed")
+def build_input_df(
+    Airline,
+    Route,
+    DayOfWeek,
+    Departure_period
+):
+    # Derived features
+    is_weekend = 1 if DayOfWeek in [6, 7] else 0
 
-# =========================
-# INPUT FORM
-# =========================
-with st.form("prediction_form"):
-    Airline = st.text_input("Airline", "AA")
-    Rute = st.text_input("Route", "JFK-LAX")
-    Departure_period = st.selectbox(
-        "Departure Period", ["Morning", "Afternoon", "Evening", "Night"]
-    )
-    Arrival_period = st.selectbox(
-        "Arrival Period", ["Morning", "Afternoon", "Evening", "Night"]
-    )
+    # Default / safe values (median-like)
+    Flight = 1
+    Time = 12
+    Length = 120
+    Distance_km = 800
+    Arrival_Time = 14
 
-    Flight = st.number_input("Flight Number", value=100)
-    DayOfWeek = st.slider("Day of Week (1=Mon, 7=Sun)", 1, 7, 1)
-    Time = st.number_input("Departure Time", value=1200)
-    Length = st.number_input("Flight Duration (minutes)", value=120)
-    Distance_km = st.number_input("Distance (km)", value=500)
-    Arrival_Time = st.number_input("Arrival Time", value=1400)
+    arrival_period_map = {
+        "Morning": "Afternoon",
+        "Afternoon": "Evening",
+        "Evening": "Night",
+        "Night": "Morning"
+    }
+    Arrival_period = arrival_period_map.get(Departure_period, "Afternoon")
 
-    submitted = st.form_submit_button("Predict")
-
-# =========================
-# PREDICTION
-# =========================
-if submitted:
-    input_df = pd.DataFrame([{
-        "Airline": Airline,
-        "Rute": Rute,
-        "Departure_period": Departure_period,
-        "Arrival_period": Arrival_period,
+    return pd.DataFrame([{
         "Flight": Flight,
-        "DayOfWeek": DayOfWeek,
         "Time": Time,
         "Length": Length,
         "Distance_km": Distance_km,
-        "Arrival_Time": Arrival_Time
+        "Arrival_Time": Arrival_Time,
+        "Airline": Airline,
+        "Route": Route,
+        "DayOfWeek": DayOfWeek,
+        "Departure_period": Departure_period,
+        "is_weekend": is_weekend,
+        "Arrival_period": Arrival_period
     }])
 
+# =========================
+# STREAMLIT UI
+# =========================
+st.set_page_config(page_title="Airline Delay Prediction", layout="centered")
+st.title("✈️ Airline Delay Prediction")
+
+st.write("Masukkan data penerbangan sederhana di bawah ini:")
+
+Airline = st.text_input("Airline (contoh: AA, DL, UA)")
+Route = st.text_input("Route (contoh: JFK-LAX)")
+DayOfWeek = st.selectbox(
+    "Day Of Week",
+    options=[1, 2, 3, 4, 5, 6, 7],
+    format_func=lambda x: f"{x} ({'Weekend' if x in [6,7] else 'Weekday'})"
+)
+Departure_period = st.selectbox(
+    "Departure Period",
+    ["Morning", "Afternoon", "Evening", "Night"]
+)
+
+# =========================
+# PREDICT
+# =========================
+if st.button("Predict Delay"):
+    input_df = build_input_df(
+        Airline=Airline,
+        Route=Route,
+        DayOfWeek=DayOfWeek,
+        Departure_period=Departure_period
+    )
+
     proba = pipeline.predict_proba(input_df)[0][1]
-    pred = int(proba >= THRESHOLD)
 
     st.subheader("📊 Prediction Result")
-    st.write(f"Delay Probability: **{proba:.2%}**")
+    st.metric("Delay Probability", f"{proba*100:.1f}%")
 
-    if pred == 1:
-        st.error("⏱️ Flight is likely to be DELAYED")
+    if proba >= 0.5:
+        st.error("⚠️ Flight is likely to be delayed")
     else:
-        st.success("✅ Flight is likely ON TIME")
+        st.success("✅ Flight is likely to be on time")
+
