@@ -2,64 +2,105 @@ import streamlit as st
 import pandas as pd
 import joblib
 
-# =========================
-# LOAD PIPELINE
-# =========================
-pipeline = joblib.load("airlines_final_pipeline.joblib")
-
-# =========================
-# EXTRACT CATEGORY VALUES
-# =========================
-preprocessor = pipeline.named_steps["preprocess"]
-cat_encoder = (
-    preprocessor
-    .named_transformers_["cat"]
-    .named_steps["onehot"]
+# ===============================
+# CONFIG
+# ===============================
+st.set_page_config(
+    page_title="Airline Delay Prediction",
+    layout="centered"
 )
 
-CATEGORICAL_FEATURES = preprocessor.transformers_[1][2]
-CATEGORIES = dict(zip(CATEGORICAL_FEATURES, cat_encoder.categories_))
+# ===============================
+# LOAD MODEL & METADATA
+# ===============================
+@st.cache_resource
+def load_pipeline():
+    return joblib.load("airlines_final_pipeline.joblib")
 
-AIRLINES = sorted(CATEGORIES["Airline"])
-ROUTES = sorted(CATEGORIES["Rute"])
-DEPARTURE_PERIODS = sorted(CATEGORIES["Departure_period"])
+@st.cache_data
+def load_metadata():
+    return joblib.load("model_metadata.joblib")
 
-DAY_OF_WEEK = {
-    "Monday": 1,
-    "Tuesday": 2,
-    "Wednesday": 3,
-    "Thursday": 4,
-    "Friday": 5,
-    "Saturday": 6,
-    "Sunday": 7
-}
+pipeline = load_pipeline()
+metadata = load_metadata()
 
+CATEGORIES = metadata.get("categorical_features", {})
+
+# ===============================
+# SAFE CATEGORY LOAD
+# ===============================
+AIRLINES = sorted(CATEGORIES.get("Airline", []))
+RUTES = sorted(CATEGORIES.get("Rute", []))   # ⬅️ PENTING: Rute (bukan Route)
+
+# ===============================
+# UI
+# ===============================
 st.title("✈️ Airline Delay Prediction")
+st.markdown("Masukkan detail penerbangan di bawah ini")
 
-st.subheader("Masukkan detail penerbangan")
+# ===============================
+# USER INPUT
+# ===============================
+airline = st.selectbox(
+    "Airline",
+    AIRLINES if AIRLINES else ["UNKNOWN"]
+)
 
-airline = st.selectbox("Airline", AIRLINES)
-route = st.selectbox("Rute", Rute)
-day_label = st.selectbox("Day of Week", DAY_OF_WEEK.keys())
-departure_period = st.selectbox("Departure Period", DEPARTURE_PERIODS)
+route = st.selectbox(
+    "Rute",
+    RUTES if RUTES else ["UNKNOWN"]
+)
 
-if st.button("Predict Delay"):
+day_of_week = st.selectbox(
+    "Day of Week",
+    {
+        "Weekday": 1,
+        "Weekend": 7
+    }.items(),
+    format_func=lambda x: f"{x[0]} ({x[1]})"
+)[1]
+
+departure_period = st.selectbox(
+    "Departure Period",
+    ["Morning", "Afternoon", "Evening", "Night"]
+)
+
+# ===============================
+# PREDICT
+# ===============================
+if st.button("🚀 Predict Delay"):
+
+    # Minimal user input
     input_df = pd.DataFrame([{
         "Airline": airline,
-        "Route": route,
-        "DayOfWeek": DAY_OF_WEEK[day_label],
-        "Departure_period": departure_period,
-
-        # DEFAULT / AUTO FILL (user tidak perlu isi)
-        "Flight": 0,
-        "Time": 0,
-        "Length": 120,
-        "Distance_km": 500,
-        "Arrival_Time": 0,
-        "is_weekend": int(DAY_OF_WEEK[day_label] >= 6),
-        "Arrival_period": "Afternoon"
+        "Rute": route,
+        "DayOfWeek": day_of_week,
+        "Departure_period": departure_period
     }])
 
+    # ===============================
+    # AUTO-FILL MISSING FEATURES
+    # ===============================
+    required_features = pipeline.feature_names_in_
+
+    input_df = input_df.reindex(
+        columns=required_features,
+        fill_value=0
+    )
+
+    # ===============================
+    # PREDICTION
+    # ===============================
     proba = pipeline.predict_proba(input_df)[0][1]
 
-    st.success(f"🕒 Probability of Delay: **{proba:.2%}**")
+    label = "DELAYED ❌" if proba >= 0.5 else "ON TIME ✅"
+
+    # ===============================
+    # OUTPUT
+    # ===============================
+    st.subheader("📊 Prediction Result")
+    st.metric(
+        label="Delay Probability",
+        value=f"{proba:.2%}"
+    )
+    st.success(label)
