@@ -2,38 +2,40 @@ import streamlit as st
 import pandas as pd
 import joblib
 
-st.set_page_config(page_title="Airline Delay Prediction", layout="centered")
-st.title("✈️ Airline Delay Prediction")
+# ===============================
+# CONFIG
+# ===============================
+st.set_page_config(
+    page_title="Airline Delay Prediction",
+    layout="centered"
+)
 
-# =========================
-# LOAD PIPELINE & CATEGORIES
-# =========================
+st.title("✈️ Airline Delay Prediction")
+st.write("Masukkan data penerbangan (Airline & Rute dalam bentuk teks)")
+
+# ===============================
+# LOAD MODEL & METADATA
+# ===============================
 @st.cache_resource
 def load_artifacts():
     pipeline = joblib.load("airlines_final_pipeline.joblib")
-    categories = joblib.load("categories.joblib")
-    return pipeline, categories
+    meta = joblib.load("model_metadata.joblib")
+    return pipeline, meta
 
-pipeline, CATEGORIES = load_artifacts()
+pipeline, meta = load_artifacts()
+THRESHOLD = float(meta.get("threshold", 0.5))
 
-# 🔒 PAKSA jadi list of STRING
-AIRLINES = [str(x) for x in CATEGORIES["Airline"]]
-RUTES = [str(x) for x in CATEGORIES["Rute"]]
-DEPARTURE_PERIODS = [str(x) for x in CATEGORIES["Departure_period"]]
-
-# =========================
-# UI INPUT (STRING ONLY)
-# =========================
-airline = st.selectbox(
-    "Airline",
-    options=AIRLINES,
-    index=0
+# ===============================
+# USER INPUT (STRING ONLY)
+# ===============================
+airline = st.text_input(
+    "Airline (contoh: AA, Garuda, AirAsia)",
+    value=""
 )
 
-rute = st.selectbox(
-    "Rute",
-    options=RUTES,
-    index=0
+rute = st.text_input(
+    "Rute (contoh: CGK-SUB, JFK-LAX)",
+    value=""
 )
 
 day_map = {
@@ -48,44 +50,49 @@ day_map = {
 
 day_label = st.selectbox(
     "Day of Week",
-    options=list(day_map.keys())
+    list(day_map.keys())
 )
+dayofweek = day_map[day_label]
 
 departure_period = st.selectbox(
     "Departure Period",
-    options=DEPARTURE_PERIODS
+    ["Morning", "Afternoon", "Evening", "Night"]
 )
 
-# =========================
-# PREDICT
-# =========================
+# ===============================
+# PREDICTION
+# ===============================
 if st.button("Predict Delay"):
 
-    dayofweek = day_map[day_label]
-
-    input_df = pd.DataFrame([{
-        # numeric (default aman)
-        "Flight": 0,
-        "Time": 0,
-        "Length": 0,
-        "Distance_km": 0,
-        "Arrival_Time": 0,
-
-        # categorical (STRING ASLI)
-        "Airline": airline,
-        "Rute": rute,
-        "DayOfWeek": dayofweek,
-        "Departure_period": departure_period,
-        "is_weekend": int(dayofweek >= 6),
-        "Arrival_period": "Unknown"
-    }])
-
-    proba = pipeline.predict_proba(input_df)[0][1]
-
-    st.markdown("---")
-    st.write("### Prediction Result")
-
-    if proba >= 0.32:
-        st.error(f"⏱️ **DELAYED** — Probability: {proba:.2%}")
+    # VALIDASI SEDERHANA
+    if airline.strip() == "" or rute.strip() == "":
+        st.warning("⚠️ Airline dan Rute tidak boleh kosong")
     else:
-        st.success(f"✅ **ON TIME** — Probability: {1 - proba:.2%}")
+        input_df = pd.DataFrame([{
+            # numeric (default aman)
+            "Flight": 0,
+            "Time": 0,
+            "Length": 0,
+            "Distance_km": 0,
+            "Arrival_Time": 0,
+
+            # categorical (STRING ASLI)
+            "Airline": airline.strip(),
+            "Rute": rute.strip(),
+            "DayOfWeek": dayofweek,
+            "Departure_period": departure_period,
+            "is_weekend": int(dayofweek >= 6),
+            "Arrival_period": "Unknown"
+        }])
+
+        proba = pipeline.predict_proba(input_df)[0][1]
+
+        st.markdown("---")
+        st.subheader("📊 Prediction Result")
+
+        if proba >= THRESHOLD:
+            st.error(f"⏱️ **DELAYED** — Probability: {proba:.2%}")
+        else:
+            st.success(f"✅ **ON TIME** — Probability: {1 - proba:.2%}")
+
+        st.caption(f"Decision threshold = {THRESHOLD:.2f}")
