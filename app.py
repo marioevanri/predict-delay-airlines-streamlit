@@ -12,45 +12,55 @@ def load_pipeline():
 pipeline = load_pipeline()
 
 # =========================
-# FEATURE BUILDER
+# LOAD CATEGORY OPTIONS
 # =========================
-def build_input_df(
-    Airline,
-    Route,
-    DayOfWeek,
-    Departure_period
-):
-    # Derived features
+@st.cache_data
+def load_categories():
+    # ambil kategori dari encoder di pipeline
+    ohe = pipeline.named_steps["preprocess"] \
+                  .named_transformers_["cat"] \
+                  .named_steps["onehot"]
+
+    feature_names = ohe.get_feature_names_out()
+
+    airlines = sorted(
+        set(f.split("_", 1)[1] for f in feature_names if f.startswith("Airline_"))
+    )
+    routes = sorted(
+        set(f.split("_", 1)[1] for f in feature_names if f.startswith("Route_"))
+    )
+
+    return airlines, routes
+
+AIRLINES, ROUTES = load_categories()
+
+# =========================
+# FEATURE BUILDER (FULL)
+# =========================
+def build_input_df(Airline, Route, DayOfWeek, Departure_period):
     is_weekend = 1 if DayOfWeek in [6, 7] else 0
 
-    # Default / safe values (median-like)
-    Flight = 1
-    Time = 12
-    Length = 120
-    Distance_km = 800
-    Arrival_Time = 14
-
-    arrival_period_map = {
-        "Morning": "Afternoon",
-        "Afternoon": "Evening",
-        "Evening": "Night",
-        "Night": "Morning"
-    }
-    Arrival_period = arrival_period_map.get(Departure_period, "Afternoon")
-
-    return pd.DataFrame([{
-        "Flight": Flight,
-        "Time": Time,
-        "Length": Length,
-        "Distance_km": Distance_km,
-        "Arrival_Time": Arrival_Time,
+    # default numeric (aman & konsisten)
+    data = {
+        "Flight": 1,
+        "Time": 12,
+        "Length": 120,
+        "Distance_km": 800,
+        "Arrival_Time": 14,
         "Airline": Airline,
         "Route": Route,
         "DayOfWeek": DayOfWeek,
         "Departure_period": Departure_period,
         "is_weekend": is_weekend,
-        "Arrival_period": Arrival_period
-    }])
+        "Arrival_period": {
+            "Morning": "Afternoon",
+            "Afternoon": "Evening",
+            "Evening": "Night",
+            "Night": "Morning"
+        }[Departure_period]
+    }
+
+    return pd.DataFrame([data])
 
 # =========================
 # STREAMLIT UI
@@ -58,15 +68,17 @@ def build_input_df(
 st.set_page_config(page_title="Airline Delay Prediction", layout="centered")
 st.title("✈️ Airline Delay Prediction")
 
-st.write("Masukkan data penerbangan sederhana di bawah ini:")
+st.markdown("### Masukkan detail penerbangan")
 
-Airline = st.text_input("Airline (contoh: AA, DL, UA)")
-Route = st.text_input("Route (contoh: JFK-LAX)")
+Airline = st.selectbox("Airline", AIRLINES)
+Route = st.selectbox("Route", ROUTES)
+
 DayOfWeek = st.selectbox(
-    "Day Of Week",
+    "Day of Week",
     options=[1, 2, 3, 4, 5, 6, 7],
     format_func=lambda x: f"{x} ({'Weekend' if x in [6,7] else 'Weekday'})"
 )
+
 Departure_period = st.selectbox(
     "Departure Period",
     ["Morning", "Afternoon", "Evening", "Night"]
@@ -77,10 +89,7 @@ Departure_period = st.selectbox(
 # =========================
 if st.button("Predict Delay"):
     input_df = build_input_df(
-        Airline=Airline,
-        Route=Route,
-        DayOfWeek=DayOfWeek,
-        Departure_period=Departure_period
+        Airline, Route, DayOfWeek, Departure_period
     )
 
     proba = pipeline.predict_proba(input_df)[0][1]
@@ -92,4 +101,3 @@ if st.button("Predict Delay"):
         st.error("⚠️ Flight is likely to be delayed")
     else:
         st.success("✅ Flight is likely to be on time")
-
