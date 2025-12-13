@@ -107,3 +107,8 @@ if st.button("Predict Delay"):
         st.subheader("Hasil Prediksi")
 
         if pred == 1:
+            st.error(f"⏱️ **Delay Predicted** (probability = {proba:.2%})")
+        else:
+            st.success(f"✅ **On Time** (probability = {1 - proba:.2%})")
+
+        st.caption(f"Decision threshold = {THRESHOLD:.2f}")
