@@ -39,7 +39,7 @@ st.title("✈️ Airline Delay Prediction")
 st.subheader("Masukkan detail penerbangan")
 
 airline = st.selectbox("Airline", AIRLINES)
-route = st.selectbox("Rute", ROUTES)
+route = st.selectbox("Rute", Rute)
 day_label = st.selectbox("Day of Week", DAY_OF_WEEK.keys())
 departure_period = st.selectbox("Departure Period", DEPARTURE_PERIODS)
 
