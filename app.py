@@ -3,112 +3,86 @@ import pandas as pd
 import joblib
 import numpy as np
 
-# =========================
-# CONFIG
-# =========================
-st.set_page_config(
-    page_title="Airline Delay Prediction",
-    layout="centered"
-)
+# ===============================
+# LOAD MODEL & METADATA
+# ===============================
+@st.cache_resource
+def load_artifacts():
+    pipeline = joblib.load("airlines_final_pipeline.joblib")
+    meta = joblib.load("model_metadata.joblib")
+    return pipeline, meta
+
+pipeline, meta = load_artifacts()
+threshold = float(meta.get("threshold", 0.5))
+
+# ===============================
+# AMBIL KATEGORI DARI PIPELINE
+# ===============================
+preprocessor = pipeline.named_steps["preprocess"]
+cat_pipeline = preprocessor.named_transformers_["cat"]
+onehot = cat_pipeline.named_steps["onehot"]
+
+cat_features = preprocessor.transformers_[1][2]  # kolom kategorikal
+cat_categories = dict(zip(cat_features, onehot.categories_))
+
+AIRLINES = sorted(cat_categories["Airline"])
+ROUTES = sorted(cat_categories["Rute"])
+
+# ===============================
+# STREAMLIT UI
+# ===============================
+st.set_page_config(page_title="Airline Delay Prediction", layout="centered")
 
 st.title("✈️ Airline Delay Prediction")
+st.write("Masukkan detail penerbangan:")
 
-# =========================
-# LOAD MODEL & METADATA
-# =========================
-@st.cache_resource
-def load_pipeline():
-    pipeline = joblib.load("airlines_final_pipeline.joblib")
-    metadata = joblib.load("model_metadata.joblib")
-    return pipeline, metadata
+# -------- INPUT USER ----------
+airline = st.selectbox("Airline", AIRLINES)
+route = st.selectbox("Route", ROUTES)
 
-pipeline, metadata = load_pipeline()
-
-THRESHOLD = float(metadata.get("threshold", 0.5))
-
-# =========================
-# GET CATEGORY VALUES FROM PIPELINE
-# =========================
-preprocess = pipeline.named_steps["preprocess"]
-cat_pipe = preprocess.named_transformers_["cat"]
-ohe = cat_pipe.named_steps["onehot"]
-
-CATEGORIES = dict(
-    zip(
-        metadata["categorical_features"],
-        ohe.categories_
-    )
-)
-
-# =========================
-# UI INPUT
-# =========================
-st.subheader("Masukkan detail penerbangan")
-
-airline = st.selectbox(
-    "Airline",
-    sorted(CATEGORIES["Airline"])
-)
-
-route = st.selectbox(
-    "Route",
-    sorted(CATEGORIES["Rute"])
-)
-
-day_of_week = st.selectbox(
-    "Day of Week",
-    ["Weekday", "Weekend"]
-)
+day_map = {
+    "Monday": 1,
+    "Tuesday": 2,
+    "Wednesday": 3,
+    "Thursday": 4,
+    "Friday": 5,
+    "Saturday": 6,
+    "Sunday": 7,
+}
+day_label = st.selectbox("Day of Week", list(day_map.keys()))
+dayofweek = day_map[day_label]
 
 departure_period = st.selectbox(
     "Departure Period",
-    sorted(CATEGORIES["Departure_period"])
+    ["Morning", "Afternoon", "Evening", "Night"]
 )
 
-# =========================
-# FEATURE ENGINEERING (USER → MODEL)
-# =========================
+# ===============================
+# PREDICTION
+# ===============================
 if st.button("Predict Delay"):
-    with st.spinner("Predicting..."):
+    # Buat input lengkap sesuai pipeline
+    input_df = pd.DataFrame([{
+        "Flight": 0,
+        "Time": 0,
+        "Length": 0,
+        "Distance_km": 0,
+        "Arrival_Time": 0,
+        "Airline": airline,
+        "Rute": route,
+        "DayOfWeek": dayofweek,
+        "Departure_period": departure_period,
+        "is_weekend": int(dayofweek >= 6),
+        "Arrival_period": "Unknown"
+    }])
 
-        # Map weekday
-        day_map = {"Weekday": 1, "Weekend": 7}
-        is_weekend = 1 if day_of_week == "Weekend" else 0
+    # Prediksi
+    proba = pipeline.predict_proba(input_df)[0][1]
+    pred = int(proba >= threshold)
 
-        # =========================
-        # BUILD INPUT DATAFRAME
-        # =========================
-        input_df = pd.DataFrame([{
-            # ===== NUMERIC (DEFAULT SAFE) =====
-            "Flight": 1,
-            "Time": 0,
-            "Length": 0,
-            "Distance_km": 0,
-            "Arrival_Time": 0,
-
-            # ===== CATEGORICAL =====
-            "Airline": airline,
-            "Rute": route,
-            "DayOfWeek": day_map[day_of_week],
-            "Departure_period": departure_period,
-            "is_weekend": is_weekend,
-            "Arrival_period": "Unknown"
-        }])
-
-        # =========================
-        # PREDICTION
-        # =========================
-        proba = pipeline.predict_proba(input_df)[0][1]
-        pred = int(proba >= THRESHOLD)
-
-        # =========================
-        # OUTPUT
-        # =========================
-        st.subheader("Hasil Prediksi")
-
-        if pred == 1:
-            st.error(f"⏱️ **Delay Predicted** (probability = {proba:.2%})")
-        else:
-            st.success(f"✅ **On Time** (probability = {1 - proba:.2%})")
-
-        st.caption(f"Decision threshold = {THRESHOLD:.2f}")
+    # Output
+    st.markdown("---")
+    if pred == 1:
+        st.error(f"⏱️ **Delay Predicted**\n\nProbability: **{proba:.2%}**")
+    else:
+        st.success(f"✅ **On Time**\n\nProbability: **{1 - proba:.2%}**")
