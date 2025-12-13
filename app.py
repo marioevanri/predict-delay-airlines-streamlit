@@ -29,12 +29,12 @@ THRESHOLD = float(meta.get("threshold", 0.5))
 # USER INPUT (STRING ONLY)
 # ===============================
 airline = st.text_input(
-    "Airline (contoh: AA, Garuda, AirAsia)",
+    "Airline (contoh: AA, WN, F9)",
     value=""
 )
 
 rute = st.text_input(
-    "Rute (contoh: CGK-SUB, JFK-LAX)",
+    "Rute (contoh: JFK-LAX, ANC-ORD)",
     value=""
 )
 
