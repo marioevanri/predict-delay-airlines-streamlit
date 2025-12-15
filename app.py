@@ -2,7 +2,6 @@ import streamlit as st
 
 st.set_page_config(
     page_title="Airline Delay Prediction",
-    page_icon="✈️",
     layout="centered"
 )
 
@@ -16,12 +15,12 @@ menggunakan **Machine Learning**.
 
 Model memanfaatkan informasi seperti:
 - Maskapai
-- Rute
-- Hari
-- Waktu Keberangkatan
-- Waktu Tiba
+- Rute penerbangan
+- Hari keberangkatan
+- Waktu keberangkatan
+- Waktu tiba
 
-➡️ Silakan buka **menu di sidebar** untuk masuk ke halaman prediksi.
+➡️ **Silakan gunakan sidebar di kiri** untuk masuk ke halaman prediksi ML.
 """)
 
-st.info("📌 Gunakan sidebar untuk berpindah halaman.")
+st.info("📌 Sidebar akan muncul otomatis jika folder `pages/` terdeteksi.")
