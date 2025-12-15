@@ -57,13 +57,13 @@ def build_model_input(user_input: dict) -> pd.DataFrame:
 st.set_page_config(page_title="Airline Delay Prediction", layout="centered")
 
 st.title("✈️ Airline Delay Prediction")
-st.write("Masukkan data penerbangan")
+st.write("Input your flight information here :")
 
 # =====================
 # USER INPUT (FRIENDLY)
 # =====================
-airline = st.text_input("Maskapai (contoh: AA, B6, WN)")
-route = st.text_input("Rute (contoh: JFK-LAX)")
+airline = st.text_input("Airlines code (ex : AA, B6, WN)")
+route = st.text_input("Route (ex: JFK-LAX)")
 
 day_of_week = st.selectbox(
     "Dapature Day",
