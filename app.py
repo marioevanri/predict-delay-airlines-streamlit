@@ -71,7 +71,7 @@ day_of_week = st.selectbox(
      "Friday", "Saturday", "Sunday"]
 )
 
-time = st.slider("Jam Keberangkatan", 0, 23, 8)
+time = st.slider("Departure Time", 0, 23, 8)
 
 arrival_period = st.selectbox(
     "Arrival Times",
