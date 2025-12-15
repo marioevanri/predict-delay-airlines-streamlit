@@ -64,7 +64,7 @@ def build_model_input(user_input: dict) -> pd.DataFrame:
 st.set_page_config(page_title="Airline Delay Prediction", layout="centered")
 
 st.title("✈️ Airline Delay Prediction")
-st.write("Masukkan data penerbangan (input minimal & user-friendly)")
+st.write("Masukkan data penerbangan")
 
 
 # USER INPUT
