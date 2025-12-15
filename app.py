@@ -21,7 +21,7 @@ def build_model_input(user_input: dict) -> pd.DataFrame:
     """
 
     df = pd.DataFrame([user_input])
-
+    
    
     # NUMERIC DEFAULT FEATURES
     
@@ -90,11 +90,11 @@ arrival_period = st.selectbox(
 
 if st.button("Predict Delay"):
     user_input = {
-        "Kode Maskapai": airline,
-        "Rute Bandara": route,
-        "Hari Keberangkatan": day_of_week,
-        "Waktu Keberangkatan": time,
-        "Estimasi Waktu Tiba": arrival_period
+        "Kode Maskapai": Airline,
+        "Rute Bandara": Rute,
+        "Hari Keberangkatan": DayOfWeek,
+        "Waktu Keberangkatan": Time,
+        "Estimasi Waktu Tiba": Arrival_period
     }
 
     input_df = build_model_input(user_input)
