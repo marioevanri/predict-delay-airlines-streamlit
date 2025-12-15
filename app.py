@@ -60,22 +60,22 @@ st.title("✈️ Airline Delay Prediction")
 st.write("Masukkan data penerbangan")
 
 # =====================
-# USER INPUT (FRIENDLY)
+# USER INPUT
 # =====================
 airline = st.text_input("Maskapai (contoh: AA, B6, WN)")
 route = st.text_input("Rute (contoh: JFK-LAX)")
 
 day_of_week = st.selectbox(
     "Hari Keberangkatan",
-    ["Monday", "Tuesday", "Wednesday", "Thursday",
-     "Friday", "Saturday", "Sunday"]
+    ["Senin", "Selasa", "Rabu", "Kamis",
+     "Jumat", "Sabtu", "Minggu"]
 )
 
 time = st.slider("Jam Keberangkatan", 0, 23, 8)
 
 arrival_period = st.selectbox(
     "Periode Kedatangan",
-    ["Morning", "Afternoon", "Evening", "Night"]
+    ["Pagi", "Siang", "Petang", "Malam"]
 )
 
 # =====================
